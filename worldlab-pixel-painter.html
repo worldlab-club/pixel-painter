@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>World Lab Pixel Painter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sanchez:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:    #161616;
+    --surf:  #1e1e1e;
+    --surf2: #282828;
+    --brd:   #323232;
+    --txt:   #f0f0f0;
+    --dim:   #666;
+    --sys:   #4A6FD4;
+    --font:  'Sanchez', Georgia, serif;
+  }
+
+  html, body {
+    height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--txt);
+    font-family: var(--font);
+    user-select: none; -webkit-user-select: none;
+    touch-action: none;
+  }
+
+  #app {
+    display: flex; flex-direction: column;
+    height: 100dvh; overflow: hidden;
+  }
+
+  /* ── HEADER ── */
+  #header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px; height: 40px; flex-shrink: 0;
+    background: var(--surf); border-bottom: 1px solid var(--brd);
+  }
+  .logo { display: flex; gap: 3px; align-items: center; }
+  .ld   { width: 7px; height: 7px; border-radius: 2px; }
+  #header h1 {
+    font-size: .82rem; font-style: italic;
+    letter-spacing: .04em; white-space: nowrap;
+  }
+  #header h1 span { font-style: normal; color: #9A9A9A; }
+  #hdr-btns { margin-left: auto; display: flex; gap: 4px; }
+
+  .btn {
+    font-family: var(--font); font-size: .62rem;
+    padding: 3px 9px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--brd);
+    background: var(--surf2); color: var(--txt);
+    transition: opacity .12s;
+  }
+  .btn:hover { opacity: .82; }
+  .btn-warn  { background: #5a1818; border-color: #8a2828; color: #fcc; }
+  .btn-sys   { background: var(--sys); border-color: var(--sys); color: #fff; }
+
+  /* ── TOOLBAR ── */
+  #toolbar {
+    display: flex; align-items: center; gap: 2px;
+    padding: 0 8px; height: 46px; flex-shrink: 0;
+    background: var(--surf); border-bottom: 1px solid var(--brd);
+    overflow-x: auto; overflow-y: hidden;
+  }
+  #toolbar::-webkit-scrollbar { display: none; }
+
+  .tool-btn {
+    width: 34px; height: 34px; border-radius: 6px;
+    border: 1px solid transparent; background: transparent;
+    color: var(--dim); cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .9rem; font-family: var(--font);
+    transition: all .12s;
+  }
+  .tool-btn:hover  { background: var(--surf2); color: var(--txt); }
+  .tool-btn.active { background: var(--surf2); border-color: var(--sys); color: var(--sys); }
+
+  .t-sep { width: 1px; height: 26px; background: var(--brd); margin: 0 6px; flex-shrink: 0; }
+  .t-lbl { font-size: .5rem; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); margin-right: 4px; flex-shrink: 0; }
+
+  .sz-btn {
+    width: 30px; height: 30px; border-radius: 5px;
+    border: 1px solid var(--brd); background: var(--surf2);
+    cursor: pointer; flex-shrink: 0; margin-right: 2px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--txt); line-height: 1; font-family: var(--font);
+    transition: all .12s;
+  }
+  .sz-btn.active { border-color: var(--sys); background: var(--sys); }
+
+  .grid-lbl {
+    display: flex; align-items: center; gap: 4px;
+    font-size: .58rem; color: var(--dim); cursor: pointer; flex-shrink: 0;
+  }
+  .grid-lbl input { accent-color: var(--sys); }
+
+  /* ── CANVAS AREA ── */
+  #canvas-wrap {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; min-height: 0;
+    background: repeating-conic-gradient(#222 0% 25%, #1a1a1a 0% 50%) 0 0 / 16px 16px;
+  }
+  #cvs {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    cursor: crosshair; display: block; flex-shrink: 0;
+    box-shadow: 0 0 0 1px var(--brd), 0 4px 24px rgba(0,0,0,.8);
+    touch-action: none;
+  }
+
+  /* ── PALETTE ── */
+  #palette {
+    background: var(--surf); border-top: 1px solid var(--brd); flex-shrink: 0;
+  }
+  #color-row {
+    display: flex; align-items: center; gap: 7px;
+    padding: 4px 10px; border-bottom: 1px solid var(--brd);
+  }
+  #cur-swatch {
+    width: 28px; height: 28px; border-radius: 5px;
+    border: 2px solid var(--brd); cursor: pointer; flex-shrink: 0;
+  }
+  #color-hex  { font-size: .62rem; font-family: monospace; color: var(--dim); display: block; }
+  #color-name { font-size: .52rem; color: var(--dim); display: block; }
+
+  .pal-tabs { display: flex; margin-left: 4px; }
+  .ptab {
+    font-family: var(--font); font-size: .52rem; letter-spacing: .06em;
+    text-transform: uppercase; padding: 3px 7px; cursor: pointer;
+    color: var(--dim); background: transparent; border: none;
+    border-bottom: 2px solid transparent; white-space: nowrap;
+    transition: color .12s, border-color .12s;
+  }
+  .ptab:hover  { color: var(--txt); }
+  .ptab.active { color: var(--txt); border-bottom-color: var(--sys); }
+
+  #swatch-area {
+    height: 74px; padding: 5px 10px;
+    overflow-x: auto; overflow-y: hidden; flex-shrink: 0;
+  }
+  #swatch-area::-webkit-scrollbar { height: 3px; }
+  #swatch-area::-webkit-scrollbar-thumb { background: var(--brd); border-radius: 2px; }
+
+  .pane { display: none; height: 100%; }
+  .pane.active { display: flex; }
+
+  /* World Lab pane */
+  #pane-worldlab { gap: 6px; align-items: flex-start; }
+  .b-col { display: flex; flex-direction: column; gap: 2px; align-items: center; }
+  .b-lbl { font-size: .42rem; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; margin-bottom: 1px; }
+  .b-swatches { display: flex; flex-direction: column; gap: 2px; }
+
+  /* Spectrum pane */
+  #pane-spectrum { gap: 2px; align-items: flex-start; }
+  .h-col  { display: flex; flex-direction: column; gap: 2px; }
+  .h-lbl  { font-size: .38rem; color: var(--dim); text-align: center; max-width: 18px; overflow: hidden; white-space: nowrap; }
+
+  /* Neutral pane */
+  #pane-neutral { gap: 2px; flex-wrap: wrap; align-content: flex-start; }
+
+  /* Swatches */
+  .sw {
+    width: 18px; height: 18px; border-radius: 3px;
+    cursor: pointer; flex-shrink: 0;
+    outline: 2px solid transparent; outline-offset: 1px;
+    transition: transform .1s; position: relative; z-index: 1;
+  }
+  .sw:hover  { transform: scale(1.3); z-index: 5; }
+  .sw.active { outline-color: #fff; transform: scale(1.15); z-index: 3; }
+
+  /* ── STATUS ── */
+  #status {
+    padding: 1px 12px; font-size: .55rem; color: var(--dim);
+    background: var(--bg); border-top: 1px solid var(--brd);
+    display: flex; gap: 14px; flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div class="logo">
+      <div class="ld" style="background:#F5B731"></div>
+      <div class="ld" style="background:#4E8B61"></div>
+      <div class="ld" style="background:#E8522A"></div>
+      <div class="ld" style="background:#4A6FD4"></div>
+      <div class="ld" style="background:#9A9A9A"></div>
+    </div>
+    <h1>World Lab <span>Pixel Painter</span></h1>
+    <div id="hdr-btns">
+      <button class="btn btn-warn" id="btn-clear">Clear</button>
+      <button class="btn"          id="btn-undo">↩ Undo</button>
+      <button class="btn btn-sys"  id="btn-save">↓ Save</button>
+    </div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div id="toolbar">
+    <button class="tool-btn active" data-tool="draw"    title="Draw (D)">✏️</button>
+    <button class="tool-btn"        data-tool="fill"    title="Fill (F)">🪣</button>
+    <button class="tool-btn"        data-tool="erase"   title="Erase (E)">🧹</button>
+    <button class="tool-btn"        data-tool="eyedrop" title="Pick (I)">💉</button>
+    <button class="tool-btn"        data-tool="line"    title="Line (L)" style="font-size:.8rem;font-weight:bold">╱</button>
+    <button class="tool-btn"        data-tool="rect"    title="Rect (R)" style="font-size:.75rem">▭</button>
+    <div class="t-sep"></div>
+    <span class="t-lbl">Size</span>
+    <button class="sz-btn active" data-lw="1" title="1 cell"  style="font-size:1.2rem">·</button>
+    <button class="sz-btn"        data-lw="2" title="2 cells" style="font-size:1.5rem">—</button>
+    <button class="sz-btn"        data-lw="3" title="3 cells" style="font-size:1.8rem">━</button>
+    <div class="t-sep"></div>
+    <label class="grid-lbl">
+      <input type="checkbox" id="grid-toggle" checked> Grid
+    </label>
+  </div>
+
+  <!-- CANVAS -->
+  <div id="canvas-wrap">
+    <canvas id="cvs"></canvas>
+  </div>
+
+  <!-- PALETTE -->
+  <div id="palette">
+    <div id="color-row">
+      <div id="cur-swatch"></div>
+      <input type="color" id="color-picker" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none">
+      <div>
+        <span id="color-hex">#F5B731</span>
+        <span id="color-name">Logic Yellow</span>
+      </div>
+      <div class="pal-tabs">
+        <button class="ptab active" data-tab="worldlab">World Lab</button>
+        <button class="ptab"        data-tab="spectrum">Spectrum</button>
+        <button class="ptab"        data-tab="neutral">Neutral</button>
+      </div>
+    </div>
+    <div id="swatch-area">
+      <div class="pane active" id="pane-worldlab"></div>
+      <div class="pane"        id="pane-spectrum"></div>
+      <div class="pane"        id="pane-neutral"></div>
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <div id="status">
+    <span id="st-tool">Draw</span>
+    <span id="st-size">size 1</span>
+    <span>64×64</span>
+  </div>
+
+</div>
+<script>
+// ═══════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════
+const GRID = 64;
+
+const BRANCHES = [
+  { name:"Logic",  tints:["#FDF6E3","#F9E098","#F5B731","#B07D10","#4A3000"] },
+  { name:"Growth", tints:["#EAF4EE","#8CC9A0","#4E8B61","#2A5C3C","#0D2215"] },
+  { name:"Comm",   tints:["#FDE8E1","#F4A080","#E8522A","#962E0C","#380A00"] },
+  { name:"System", tints:["#EEF2FC","#92AAEA","#4A6FD4","#24408A","#0A1530"] },
+  { name:"Inner",  tints:["#F4F4F4","#CCCCCC","#9A9A9A","#585858","#1C1C1C"] },
+];
+const SNAMES = ["Pastel","Light","Pure","Dark","Deep"];
+
+const HUES = [
+  {n:"Red",h:0},{n:"R-Or",h:15},{n:"Orange",h:28},{n:"Amber",h:40},
+  {n:"Yellow",h:55},{n:"Y-Grn",h:75},{n:"Lime",h:90},{n:"Green",h:135},
+  {n:"Teal",h:165},{n:"Cyan",h:185},{n:"Sky",h:200},{n:"Blue",h:220},
+  {n:"Indigo",h:240},{n:"Violet",h:260},{n:"Purple",h:280},{n:"Magenta",h:310},
+  {n:"Rose",h:335},{n:"Pink",h:350},
+];
+const SHADES = [{s:75,l:90},{s:90,l:70},{s:100,l:52},{s:88,l:33},{s:78,l:16}];
+
+const NEUTRALS = [
+  "#ffffff","#f0f0f0","#d8d8d8","#b8b8b8","#909090","#686868",
+  "#484848","#303030","#181818","#000000",
+  "#f5e6c0","#d4a860","#a07030","#603010","#301800",
+  "#c8e0d0","#70a888","#386850","#183828","#081410",
+];
+
+function hsl2hex(h,s,l){
+  s/=100; l/=100;
+  const a=s*Math.min(l,1-l);
+  const f=n=>{const k=(n+h/30)%12;const c=l-a*Math.max(Math.min(k-3,9-k,1),-1);return Math.round(255*c).toString(16).padStart(2,"0");};
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+let pixels   = newGrid();
+let color    = "#F5B731";
+let tool     = "draw";
+let lineW    = 1;
+let showGrid = true;
+let drawing  = false;
+let history  = [];
+let lastCell = null;
+let shapeStart = null;
+let previewPx  = {};
+
+function newGrid(){ return Array.from({length:GRID},()=>Array(GRID).fill(null)); }
+
+// ═══════════════════════════════════════════
+//  CANVAS
+// ═══════════════════════════════════════════
+const cvs  = document.getElementById("cvs");
+const ctx  = cvs.getContext("2d");
+const wrap = document.getElementById("canvas-wrap");
+
+function resize(){
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  const sz = Math.floor(Math.min(w,h) * 0.97);
+  cvs.width  = sz;
+  cvs.height = sz;
+  cvs.style.width  = sz + "px";
+  cvs.style.height = sz + "px";
+  render();
+}
+
+new ResizeObserver(resize).observe(wrap);
+
+function cell(){ return cvs.width / GRID; }
+
+function render(prev){
+  prev = prev || previewPx;
+  const CS = cell();
+  ctx.fillStyle = "#1a1a1a";
+  ctx.fillRect(0,0,cvs.width,cvs.height);
+  for(let r=0;r<GRID;r++) for(let c=0;c<GRID;c++){
+    const col=pixels[r][c];
+    if(col){ ctx.fillStyle=col; ctx.fillRect(c*CS,r*CS,CS,CS); }
+  }
+  Object.entries(prev).forEach(([k,col])=>{
+    const[r,c]=k.split(",").map(Number);
+    ctx.fillStyle=col+"88"; ctx.fillRect(c*CS,r*CS,CS,CS);
+  });
+  if(showGrid){
+    ctx.strokeStyle="rgba(255,255,255,0.07)"; ctx.lineWidth=0.5;
+    for(let i=0;i<=GRID;i++){
+      const p=i*CS;
+      ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,cvs.height);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(cvs.width,p);ctx.stroke();
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+//  DRAWING UTILS
+// ═══════════════════════════════════════════
+function bresenham(r0,c0,r1,c1){
+  const pts=[];
+  let dr=Math.abs(r1-r0),dc=Math.abs(c1-c0),
+      sr=r0<r1?1:-1,sc=c0<c1?1:-1,err=dc-dr;
+  while(true){
+    pts.push([r0,c0]);
+    if(r0===r1&&c0===c1)break;
+    const e2=2*err;
+    if(e2>-dr){err-=dr;c0+=sc;}
+    if(e2<dc){err+=dc;r0+=sr;}
+  }
+  return pts;
+}
+
+function rectPts(r0,c0,r1,c1){
+  const pts=[],rMin=Math.min(r0,r1),rMax=Math.max(r0,r1),
+              cMin=Math.min(c0,c1),cMax=Math.max(c0,c1);
+  for(let c=cMin;c<=cMax;c++){pts.push([rMin,c]);pts.push([rMax,c]);}
+  for(let r=rMin+1;r<rMax;r++){pts.push([r,cMin]);pts.push([r,cMax]);}
+  return pts;
+}
+
+function stamp(pix,r,c,col,lw){
+  for(let dr=-(lw-1);dr<lw;dr++) for(let dc=-(lw-1);dc<lw;dc++){
+    if(lw>1&&dr*dr+dc*dc>=lw*lw) continue;
+    const rr=r+dr,cc=c+dc;
+    if(rr>=0&&rr<GRID&&cc>=0&&cc<GRID) pix[rr][cc]=col;
+  }
+}
+
+function paintLine(r0,c0,r1,c1,col,lw){
+  bresenham(r0,c0,r1,c1).forEach(([r,c])=>stamp(pixels,r,c,col,lw));
+}
+
+function floodFill(r,c,target,fill){
+  if(target===fill)return;
+  const stack=[[r,c]],seen=new Set();
+  while(stack.length){
+    const[cr,cc]=stack.pop(); const key=`${cr},${cc}`;
+    if(cr<0||cr>=GRID||cc<0||cc>=GRID||seen.has(key))continue;
+    if(pixels[cr][cc]!==target)continue;
+    seen.add(key); pixels[cr][cc]=fill;
+    stack.push([cr-1,cc],[cr+1,cc],[cr,cc-1],[cr,cc+1]);
+  }
+}
+
+function getCell(clientX, clientY){
+  const rect=cvs.getBoundingClientRect();
+  const CS=rect.width/GRID;
+  const c=Math.floor((clientX-rect.left)/CS);
+  const r=Math.floor((clientY-rect.top)/CS);
+  if(c<0||r<0||c>=GRID||r>=GRID)return null;
+  return{r,c};
+}
+
+function snap(){ history.push(pixels.map(r=>[...r])); if(history.length>60)history.shift(); }
+
+// ═══════════════════════════════════════════
+//  POINTER EVENTS
+// ═══════════════════════════════════════════
+function pointerDown(x,y){
+  const cell=getCell(x,y); if(!cell)return;
+  drawing=true; lastCell=cell;
+  if(tool==="eyedrop"){
+    const col=pixels[cell.r][cell.c]; if(col) selectColor(col,"Picked");
+    setTool("draw"); return;
+  }
+  if(tool==="fill"){
+    snap(); floodFill(cell.r,cell.c,pixels[cell.r][cell.c],color); render(); return;
+  }
+  if(tool==="line"||tool==="rect"){
+    snap(); shapeStart=cell; return;
+  }
+  snap();
+  stamp(pixels,cell.r,cell.c,tool==="erase"?null:color,lineW);
+  render();
+}
+
+function pointerMove(x,y){
+  if(!drawing)return;
+  const cell=getCell(x,y); if(!cell)return;
+  if((tool==="line"||tool==="rect")&&shapeStart){
+    const pts=tool==="line"
+      ?bresenham(shapeStart.r,shapeStart.c,cell.r,cell.c)
+      :rectPts(shapeStart.r,shapeStart.c,cell.r,cell.c);
+    previewPx={};
+    pts.forEach(([r,c])=>{previewPx[`${r},${c}`]=color;});
+    render(previewPx); return;
+  }
+  if(tool==="draw"||tool==="erase"){
+    if(!lastCell||cell.r===lastCell.r&&cell.c===lastCell.c)return;
+    paintLine(lastCell.r,lastCell.c,cell.r,cell.c,tool==="erase"?null:color,lineW);
+    lastCell=cell; render();
+  }
+}
+
+function pointerUp(x,y){
+  if(!drawing)return;
+  drawing=false;
+  if((tool==="line"||tool==="rect")&&shapeStart){
+    const cell=getCell(x,y)||lastCell;
+    if(cell){
+      const pts=tool==="line"
+        ?bresenham(shapeStart.r,shapeStart.c,cell.r,cell.c)
+        :rectPts(shapeStart.r,shapeStart.c,cell.r,cell.c);
+      pts.forEach(([r,c])=>stamp(pixels,r,c,color,lineW));
+    }
+    previewPx={}; shapeStart=null; render();
+  }
+}
+
+cvs.addEventListener("mousedown", e=>{ if(e.button===0) pointerDown(e.clientX,e.clientY); });
+cvs.addEventListener("mousemove", e=>pointerMove(e.clientX,e.clientY));
+window.addEventListener("mouseup",e=>pointerUp(e.clientX,e.clientY));
+cvs.addEventListener("mouseleave",()=>{ if(!shapeStart) drawing=false; });
+
+cvs.addEventListener("touchstart", e=>{ e.preventDefault(); pointerDown(e.touches[0].clientX,e.touches[0].clientY); },{passive:false});
+cvs.addEventListener("touchmove",  e=>{ e.preventDefault(); pointerMove(e.touches[0].clientX,e.touches[0].clientY); },{passive:false});
+cvs.addEventListener("touchend",   e=>{ e.preventDefault(); const t=e.changedTouches[0]; pointerUp(t.clientX,t.clientY); },{passive:false});
+
+// ═══════════════════════════════════════════
+//  ACTIONS
+// ═══════════════════════════════════════════
+function undo(){
+  if(!history.length)return;
+  pixels=history.pop(); render();
+}
+function clearCanvas(){
+  if(!confirm("Clear canvas?"))return;
+  snap(); pixels=newGrid(); render();
+}
+function save(){
+  const tmp=document.createElement("canvas"); tmp.width=512; tmp.height=512;
+  const tc=tmp.getContext("2d"); const CS=512/GRID;
+  tc.fillStyle="#1a1a1a"; tc.fillRect(0,0,512,512);
+  for(let r=0;r<GRID;r++) for(let c=0;c<GRID;c++){
+    const col=pixels[r][c]; if(col){tc.fillStyle=col;tc.fillRect(c*CS,r*CS,CS,CS);}
+  }
+  const a=document.createElement("a"); a.download="worldlab-64x64.png"; a.href=tmp.toDataURL(); a.click();
+}
+
+document.getElementById("btn-clear").onclick = clearCanvas;
+document.getElementById("btn-undo").onclick  = undo;
+document.getElementById("btn-save").onclick  = save;
+
+// ═══════════════════════════════════════════
+//  TOOL & SIZE BUTTONS
+// ═══════════════════════════════════════════
+function setTool(t){
+  tool=t;
+  document.querySelectorAll(".tool-btn").forEach(b=>b.classList.toggle("active",b.dataset.tool===t));
+  document.getElementById("st-tool").textContent = t[0].toUpperCase()+t.slice(1);
+  shapeStart=null; previewPx={};
+}
+document.querySelectorAll(".tool-btn").forEach(b=>b.addEventListener("click",()=>setTool(b.dataset.tool)));
+
+function setLineW(lw){
+  lineW=lw;
+  document.querySelectorAll(".sz-btn").forEach(b=>b.classList.toggle("active",+b.dataset.lw===lw));
+  document.getElementById("st-size").textContent="size "+lw;
+}
+document.querySelectorAll(".sz-btn").forEach(b=>b.addEventListener("click",()=>setLineW(+b.dataset.lw)));
+
+document.getElementById("grid-toggle").addEventListener("change",e=>{
+  showGrid=e.target.checked; render();
+});
+
+// ═══════════════════════════════════════════
+//  COLOUR
+// ═══════════════════════════════════════════
+function selectColor(hex, name){
+  color = hex;
+  document.getElementById("cur-swatch").style.background = hex;
+  document.getElementById("color-hex").textContent  = hex.toUpperCase();
+  document.getElementById("color-name").textContent = name || hex;
+  document.querySelectorAll(".sw").forEach(s=>
+    s.classList.toggle("active", s.dataset.hex===hex.toLowerCase())
+  );
+}
+
+document.getElementById("cur-swatch").addEventListener("click",()=>{
+  const cp=document.getElementById("color-picker");
+  cp.value=color; cp.click();
+});
+document.getElementById("color-picker").addEventListener("input",e=>selectColor(e.target.value,"Custom"));
+
+function makeSwatch(hex,name){
+  const d=document.createElement("div");
+  d.className="sw"; d.style.background=hex;
+  d.dataset.hex=hex.toLowerCase(); d.title=name;
+  d.addEventListener("click",()=>selectColor(hex,name));
+  return d;
+}
+
+// ═══════════════════════════════════════════
+//  BUILD PALETTE
+// ═══════════════════════════════════════════
+// World Lab
+const wlPane=document.getElementById("pane-worldlab");
+BRANCHES.forEach(b=>{
+  const col=document.createElement("div"); col.className="b-col";
+  const lbl=document.createElement("div"); lbl.className="b-lbl"; lbl.textContent=b.name;
+  const sw=document.createElement("div");  sw.className="b-swatches";
+  b.tints.forEach((t,i)=>sw.appendChild(makeSwatch(t,SNAMES[i]+" "+b.name)));
+  col.appendChild(lbl); col.appendChild(sw);
+  wlPane.appendChild(col);
+});
+
+// Spectrum
+const spPane=document.getElementById("pane-spectrum");
+HUES.forEach(hu=>{
+  const col=document.createElement("div"); col.className="h-col";
+  const lbl=document.createElement("div"); lbl.className="h-lbl"; lbl.textContent=hu.n;
+  col.appendChild(lbl);
+  SHADES.forEach((sh,si)=>{
+    const hex=hsl2hex(hu.h,sh.s,sh.l);
+    col.appendChild(makeSwatch(hex,SNAMES[si]+" "+hu.n));
+  });
+  spPane.appendChild(col);
+});
+
+// Neutral
+const ntPane=document.getElementById("pane-neutral");
+NEUTRALS.forEach(n=>ntPane.appendChild(makeSwatch(n,n)));
+
+// ═══════════════════════════════════════════
+//  PALETTE TABS
+// ═══════════════════════════════════════════
+document.querySelectorAll(".ptab").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    const id=btn.dataset.tab;
+    document.querySelectorAll(".ptab").forEach(b=>b.classList.toggle("active",b===btn));
+    document.querySelectorAll(".pane").forEach(p=>p.classList.toggle("active",p.id==="pane-"+id));
+  });
+});
+
+// ═══════════════════════════════════════════
+//  KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════
+document.addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT")return;
+  if(e.ctrlKey||e.metaKey){
+    if(e.key==="z"){e.preventDefault();undo();}
+    if(e.key==="s"){e.preventDefault();save();}
+    return;
+  }
+  const map={d:"draw",f:"fill",e:"erase",i:"eyedrop",l:"line",r:"rect"};
+  if(map[e.key.toLowerCase()]) setTool(map[e.key.toLowerCase()]);
+});
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+selectColor("#F5B731","Logic Yellow");
+// resize() is called by ResizeObserver on first observe
+</script>
+</body>
+</html>
